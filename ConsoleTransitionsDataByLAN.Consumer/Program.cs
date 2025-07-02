@@ -9,21 +9,6 @@ namespace ConsoleTransitionsDataByLAN.Consumer
     {
         static async Task Main(string[] args)
         {
-            //var text = "value1";
-            //var ms= new MemoryStream();
-            //var binWriter = new BinaryWriter(ms);
-            //binWriter.Write(text);
-            //binWriter.Seek(0, SeekOrigin.Begin);
-
-
-            //var st = ms.ToArray();
-
-            //BinaryReader reader = new BinaryReader(new MemoryStream(st));
-            //byte[] result = reader.ReadBytes((int)binWriter.BaseStream.Length);
-
-            //var str = System.Text.Encoding.Default.GetString(result);
-            //Console.WriteLine(str);
-
             var port = int.Parse(ConfigurationManager.AppSettings["port"]);
             var client = new UdpClient(port);
 
