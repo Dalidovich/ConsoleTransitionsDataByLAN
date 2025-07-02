@@ -19,7 +19,7 @@ namespace ConsoleTransitionsDataByLAN.Producer
             await tcpClient.ConnectAsync(consumerEndPoint);
             var stream = tcpClient.GetStream();
 
-            string filePath = @"C:\Users\pops\Downloads\TestHugeFile.txt";
+            string filePath = ConfigurationManager.AppSettings["filePath"];
             using var fileStream = File.OpenRead(filePath);
 
             //id (4 byte) +
@@ -38,8 +38,6 @@ namespace ConsoleTransitionsDataByLAN.Producer
                     //end of file
                     break;
                 }
-
-
 
                 //Packet: [ID][Data len][Data][Hash]
                 var chunkPacket = new List<byte>();

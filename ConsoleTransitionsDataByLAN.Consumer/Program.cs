@@ -10,15 +10,14 @@ namespace ConsoleTransitionsDataByLAN.Consumer
     {
         static async Task Main(string[] args)
         {
-            var produserIp = ConfigurationManager.AppSettings["produserIp"];
-            var produserPort = int.Parse(ConfigurationManager.AppSettings["produserPort"]);
+            var port = int.Parse(ConfigurationManager.AppSettings["port"]);
 
-            var tcpListener = new TcpListener(IPAddress.Parse(produserIp), produserPort);
+            var tcpListener = new TcpListener(IPAddress.Any, port);
             tcpListener.Start();
 
             var client = await tcpListener.AcceptTcpClientAsync();
             var stream = client.GetStream();
-            var fileStream = File.Create(@"C:\Users\pops\Downloads\TestHugeFileCopy" + DateTime.Now.ToString("d") + ".txt");
+            var fileStream = File.Create(ConfigurationManager.AppSettings["saveFilePath"]);
 
             //buffer for chank recive
             //data + ID + data length + hash
