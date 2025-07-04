@@ -5,8 +5,7 @@
         static async Task Main(string[] args)
         {
             var consumer = new TCPConsumer();
-            await consumer.ConnectAsync();
-            await consumer.StartSending();
+            await consumer.Start();
         }
     }
 }

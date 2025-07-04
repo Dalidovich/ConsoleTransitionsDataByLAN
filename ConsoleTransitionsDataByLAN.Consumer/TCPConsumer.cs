@@ -10,11 +10,8 @@ namespace ConsoleTransitionsDataByLAN.Consumer
     {
         public int Port { get; set; }
         public string SaveDirrectory { get; set; }
-        public string SavePathTemp { get; set; }
 
         private TcpListener _tcpListener { get; set; }
-        private FileStream _fileStream { get; set; }
-        private NetworkStream _stream { get; set; }
 
         public TCPConsumer()
         {
@@ -31,50 +28,53 @@ namespace ConsoleTransitionsDataByLAN.Consumer
             }
         }
 
-        public async Task ConnectAsync()
+        public async Task Start()
         {
             try
             {
                 _tcpListener.Start();
-                SavePathTemp = $"{SaveDirrectory}saveFile.tempFile";
-                var client = await _tcpListener.AcceptTcpClientAsync();
-                _stream = client.GetStream();
-                _fileStream = File.Create(SavePathTemp);
+                while (true)
+                {
+                    var taskId = Guid.NewGuid();
+                    var savePathTemp = $"{SaveDirrectory}saveFile_{taskId}_.tempFile";
+                    var client = await _tcpListener.AcceptTcpClientAsync();
+
+                    await Task.Factory.StartNew(async () => await StartResieve(client.GetStream(), File.Create(savePathTemp)));
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"{new string('_', 5)}Connect TCPConsumer Error:\n{ex}");
             }
+
         }
 
-        public async Task StartSending()
+        public async Task StartResieve(NetworkStream stream, FileStream fileStream)
         {
-            try
-            {
-                int expectedChunkId = 0;
-                var totalSentBytes = 0;
+            int expectedChunkId = 0;
+            var totalSentBytes = 0;
 
-                while (true)
+            var taskId = fileStream.Name.Substring(fileStream.Name.LastIndexOf('_') - Guid.NewGuid().ToString().Length, Guid.NewGuid().ToString().Length);
+
+            while (true)
+            {
+                try
                 {
                     byte[] headerBuffer = new byte[8];
-                    await _stream.ReadExactlyAsync(headerBuffer);
+                    await stream.ReadExactlyAsync(headerBuffer);
 
                     //id 4 byte
                     int chunkId = BitConverter.ToInt32(headerBuffer.Take(4).ToArray());
                     //data length 4 byte
                     int chunkLength = BitConverter.ToInt32(headerBuffer.Skip(4).ToArray());
-                    //if (Encoding.UTF8.GetString(headerBuffer).StartsWith("END"))
-                    //{
-                    //    break;
-                    //}
 
                     //read data with chunk length
                     var buffer = new byte[chunkLength];
-                    await _stream.ReadExactlyAsync(buffer);
+                    await stream.ReadExactlyAsync(buffer);
 
                     //read hash 32 byte
                     byte[] receivedHash = new byte[32];
-                    await _stream.ReadExactlyAsync(receivedHash);
+                    await stream.ReadExactlyAsync(receivedHash);
 
                     //check hash
                     byte[] actualHash = SHA256.HashData(buffer);
@@ -82,16 +82,16 @@ namespace ConsoleTransitionsDataByLAN.Consumer
 
                     if (chunkId == expectedChunkId && isHashValid)
                     {
-                        await _fileStream.WriteAsync(buffer);
+                        await fileStream.WriteAsync(buffer);
                         expectedChunkId++;
 
                         //send ACK
                         //confirmation bool 1 byte
                         //id 4 byte
-                        await _sendACK(true, chunkId);
+                        await _sendACK(true, chunkId, stream);
 
                         totalSentBytes += buffer.Length;
-                        Console.WriteLine($"chank {chunkId} recieve");
+                        Console.WriteLine($"task: \'{taskId}\'\tchank {chunkId} recieve\t size: \'{buffer.Length}\'");
                     }
                     else if (chunkId < 0 && isHashValid)
                     {
@@ -102,13 +102,14 @@ namespace ConsoleTransitionsDataByLAN.Consumer
                             savePath = Path.Combine(SaveDirrectory,
                                 Path.GetFileNameWithoutExtension(fileName) + Guid.NewGuid().ToString() + Path.GetExtension(fileName));
                         }
-                        _fileStream.Close();
-                        File.Move(SavePathTemp, savePath);
+                        fileStream.Close();
+                        File.Move(fileStream.Name, savePath);
 
                         //send ACK
                         //confirmation bool 1 byte
                         //id 4 byte
-                        await _sendACK(true, chunkId);
+                        await _sendACK(true, chunkId, stream);
+                        expectedChunkId = 0;
                         break;
                     }
                     else
@@ -116,32 +117,27 @@ namespace ConsoleTransitionsDataByLAN.Consumer
                         //send NACK
                         //confirmation bool 1 byte
                         //id 4 byte
-                        await _sendACK(false, expectedChunkId);
+                        await _sendACK(false, expectedChunkId, stream);
 
                         Console.WriteLine($"error in chank {chunkId}; Resend");
                     }
                 }
-                EndRecieve(totalSentBytes);
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"{new string('_', 5)}Start TCPConsumer Resieve Error:\n{ex}");
+                }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"{new string('_', 5)}Start TCPConsumer Sending Error:\n{ex}");
-            }
+            fileStream.Close();
+            stream.Close();
+            Console.WriteLine($"\nfile recieve successful\nTotal size of recieve file ~{Math.Round((decimal)totalSentBytes / 1024)} KB");
         }
 
-        public void EndRecieve(int size)
-        {
-            _fileStream.Close();
-            Console.WriteLine($"\nfile recieve successful\nTotal size of recieve file ~{Math.Round((decimal)size / 1024)} KB\nPress any to exit...");
-            Console.ReadLine();
-        }
-
-        private async Task _sendACK(bool confirm, int chunckId)
+        private async Task _sendACK(bool confirm, int chunckId, NetworkStream stream)
         {
             byte[] ackPacket = new byte[5];
             ackPacket[0] = (byte)(confirm ? 0x01 : 0x00);
             BitConverter.GetBytes(chunckId).CopyTo(ackPacket, 1);
-            await _stream.WriteAsync(ackPacket);
+            await stream.WriteAsync(ackPacket);
         }
     }
 }

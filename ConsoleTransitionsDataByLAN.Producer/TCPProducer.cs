@@ -125,6 +125,7 @@ namespace ConsoleTransitionsDataByLAN.Producer
         public void EndSending(int size)
         {
             _fileStream.Close();
+            _tcpClient.Close();
             Console.WriteLine($"\nfile sending ended\nTotal size of sent file ~{Math.Round((decimal)size / 1024)} KB\nPress any to exit...");
             Console.ReadLine();
         }
