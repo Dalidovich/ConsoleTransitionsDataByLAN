@@ -5,7 +5,7 @@
         static async Task Main(string[] args)
         {
             var producer = new TCPProducer();
-            await producer.ConnectAsync();
+            while (!await producer.ConnectAsync()) { }
             await producer.StartSending();
         }
     }

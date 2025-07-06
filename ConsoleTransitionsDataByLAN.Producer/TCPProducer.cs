@@ -35,18 +35,22 @@ namespace ConsoleTransitionsDataByLAN.Producer
             }
         }
 
-        public async Task ConnectAsync()
+        public async Task<bool> ConnectAsync()
         {
             try
             {
                 await _tcpClient.ConnectAsync(ConsumerEndPoint);
-                _stream = _tcpClient.GetStream();
 
+                _stream = _tcpClient.GetStream();
                 _fileStream = File.OpenRead(FilePath);
+
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"{new string('_', 5)}Connect TCPProducer Error:\n{ex}");
+
+                return false;
             }
         }
 
