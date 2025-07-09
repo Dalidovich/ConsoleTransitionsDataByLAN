@@ -14,18 +14,18 @@ namespace ConsoleTransitionsDataByLAN.Producer
         public IPEndPoint ConsumerEndPoint { get; set; }
 
         private TcpClient _tcpClient { get; set; } = new TcpClient();
-        private FileStream _fileStream { get; set; }
+        private Stream _dataStream { get; set; }
         private NetworkStream _stream { get; set; }
 
         public int ChunkSize { get; set; } = 1024 * 1024;
 
-        public TCPProducer()
+        public TCPProducer(string? filePath = null, string? consumerIp = null, int? consumerPort = null)
         {
             try
             {
-                ConsumerIp = ConfigurationManager.AppSettings["consumerIp"];
-                ConsumerPort = int.Parse(ConfigurationManager.AppSettings["consumerPort"]);
-                FilePath = ConfigurationManager.AppSettings["loadFilePath"];
+                ConsumerIp = consumerIp ?? ConfigurationManager.AppSettings["consumerIp"];
+                ConsumerPort = consumerPort ?? int.Parse(ConfigurationManager.AppSettings["consumerPort"]);
+                FilePath = filePath ?? ConfigurationManager.AppSettings["loadFilePath"];
 
                 ConsumerEndPoint = new IPEndPoint(IPAddress.Parse(ConsumerIp), ConsumerPort);
             }
@@ -35,14 +35,14 @@ namespace ConsoleTransitionsDataByLAN.Producer
             }
         }
 
-        public async Task<bool> ConnectAsync()
+        public async Task<bool> ConnectAsync(Stream? dataStream = null)
         {
             try
             {
                 await _tcpClient.ConnectAsync(ConsumerEndPoint);
 
                 _stream = _tcpClient.GetStream();
-                _fileStream = File.OpenRead(FilePath);
+                _dataStream = dataStream ?? File.OpenRead(FilePath);
 
                 return true;
             }
@@ -67,7 +67,7 @@ namespace ConsoleTransitionsDataByLAN.Producer
 
                 while (true)
                 {
-                    var bytesRead = await _fileStream.ReadAsync(buffer, 0, ChunkSize);
+                    var bytesRead = await _dataStream.ReadAsync(buffer, 0, ChunkSize);
                     if (bytesRead == 0)
                     {
                         //end of file
@@ -119,6 +119,7 @@ namespace ConsoleTransitionsDataByLAN.Producer
                     chunkId++;
                 }
                 EndSending(totalSentBytes - nameBuffer.Length);
+                _dataStream.Close();
             }
             catch (Exception ex)
             {
@@ -128,10 +129,8 @@ namespace ConsoleTransitionsDataByLAN.Producer
 
         public void EndSending(int size)
         {
-            _fileStream.Close();
             _tcpClient.Close();
-            Console.WriteLine($"\nfile sending ended\nTotal size of sent file ~{Math.Round((decimal)size / 1024)} KB\nPress any to exit...");
-            Console.ReadLine();
+            Console.WriteLine($"\nfile sending ended\nTotal size of sent file ~{Math.Round((decimal)size / 1024)} KB");
         }
     }
 }
