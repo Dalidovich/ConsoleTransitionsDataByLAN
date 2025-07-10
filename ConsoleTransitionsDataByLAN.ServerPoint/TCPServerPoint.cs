@@ -1,5 +1,6 @@
 ﻿using ConsoleTransitionsDataByLAN.Consumer;
 using ConsoleTransitionsDataByLAN.Producer;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -59,6 +60,10 @@ namespace ConsoleTransitionsDataByLAN.ServerPoint
             {
                 await SendRequestedFile(command);
             }
+            else if (command.StartsWith(CommandManager.errorNotification))
+            {
+                Console.WriteLine(command);
+            }
             else if (command.StartsWith(CommandManager.pingCommand))
             {
                 var commandSplit = command.Split(CommandManager.CommandAttributeSeparator);
@@ -78,7 +83,15 @@ namespace ConsoleTransitionsDataByLAN.ServerPoint
         {
             if (command.StartsWith(CommandManager.fileCommand))
             {
-                var refactorCommand = $"{CommandManager.fileCommand}{CommandManager.CommandAttributeSeparator}{GetOwnIp()}{CommandManager.CommandAttributeSeparator}{command.Substring(CommandManager.fileCommand.Length + 1)}";
+                var refactorCommand = "";
+                if (command.Trim(CommandManager.CommandAttributeSeparator[0]) == CommandManager.fileCommand)
+                {
+                    refactorCommand = $"{CommandManager.fileCommand}{CommandManager.CommandAttributeSeparator}{GetOwnIp()}{CommandManager.CommandAttributeSeparator}";
+                }
+                else
+                {
+                    refactorCommand = $"{CommandManager.fileCommand}{CommandManager.CommandAttributeSeparator}{GetOwnIp()}{CommandManager.CommandAttributeSeparator}{command.Substring(CommandManager.fileCommand.Length + 1)}";
+                }
                 await UDPCommandWatchers.SendCommands(refactorCommand);
             }
             else if (command == CommandManager.listCommand)
@@ -138,6 +151,12 @@ namespace ConsoleTransitionsDataByLAN.ServerPoint
 
             var files = Directory.EnumerateFiles(_consumer.SaveDirrectory, "*", SearchOption.AllDirectories); ;
             var fullPath = files.SingleOrDefault(x => Path.GetFileName(x) == fileName);
+
+            if (fullPath == null)
+            {
+                await UDPCommandWatchers.SendCommands(CommandManager.GetErrorMessage(ErrorType.fileNotExist,fileName), clientIp);
+                return;
+            }
 
             var producer = new TCPProducer(fullPath, clientIp);
             while (!await producer.ConnectAsync())

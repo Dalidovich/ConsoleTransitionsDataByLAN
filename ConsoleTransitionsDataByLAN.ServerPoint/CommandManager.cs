@@ -7,6 +7,8 @@
         public const string helpCommand = "help";
         public const string exitCommand = "exit";
         public const string pingCommand = "ping";
+
+        public const string errorNotification= "Error";
         public const string defaultNameAvailableFileList = "Available File List.txt";
         public const string CommandAttributeSeparator = "_";
 
@@ -16,5 +18,20 @@
             clientIp = withoutCommand.Substring(0, withoutCommand.IndexOf(CommandManager.CommandAttributeSeparator));
             fileName = withoutCommand.Substring(withoutCommand.IndexOf(CommandManager.CommandAttributeSeparator) + 1);
         }
+
+        public static string GetErrorMessage(ErrorType errorType, string? value=null)
+        {
+            switch (errorType)
+            {
+                case ErrorType.fileNotExist:
+                    return $"{errorNotification}:\nFile with name: \'{value??""}\' not exist";
+                default:
+                    return $"unknown error with value: \'{value?.ToString()}\'";
+            }
+        }
+    }
+    public enum ErrorType 
+    {
+        fileNotExist
     }
 }
